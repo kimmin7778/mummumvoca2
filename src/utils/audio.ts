@@ -125,3 +125,10 @@ class SoundEffects {
 }
 
 export const soundFx = new SoundEffects();
+
+export function playSound(type: 'correct' | 'wrong' | 'click' | 'pass') {
+  if (type === 'correct') soundFx.playCorrect();
+  else if (type === 'wrong') soundFx.playIncorrect();
+  else if (type === 'click') soundFx.playFlip();
+  else if (type === 'pass') soundFx.playFanfare();
+}

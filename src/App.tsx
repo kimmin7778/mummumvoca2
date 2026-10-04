@@ -11,16 +11,21 @@ import {
 } from './utils/storage';
 import { formatTimestamp } from './utils/dateFormatter';
 import { initTTS } from './utils/tts';
+import { decodeWordSetFromHash } from './utils/shareUtils';
 
 import { Header } from './components/Header';
 import { FlashcardMode } from './components/FlashcardMode';
 import { RecallMode } from './components/RecallMode';
 import { SpellingMode } from './components/SpellingMode';
+import { MatchGameMode } from './components/MatchGameMode';
+import { RaceHostMode } from './components/RaceHostMode';
+import { RaceTabletMode } from './components/RaceTabletMode';
 import { TestMode } from './components/TestMode';
 import { TestHistoryDashboard } from './components/TestHistoryDashboard';
 import { WordListManager } from './components/WordListManager';
 import { TxtImportModal } from './components/TxtImportModal';
 import { WordEditModal } from './components/WordEditModal';
+import { ShareQrModal } from './components/ShareQrModal';
 
 export function App() {
   const [wordSets, setWordSets] = useState<WordSet[]>([]);
@@ -31,19 +36,48 @@ export function App() {
   // Modals state
   const [isTxtImportOpen, setIsTxtImportOpen] = useState(false);
   const [isWordEditOpen, setIsWordEditOpen] = useState(false);
+  const [isShareQrOpen, setIsShareQrOpen] = useState(false);
   const [wordToEdit, setWordToEdit] = useState<Word | null>(null);
+  const [tabletInitialRoom, setTabletInitialRoom] = useState<string>('');
 
   // Initialize TTS voices & load initial state from LocalStorage
   useEffect(() => {
     initTTS();
     const loadedSets = loadWordSets();
-    setWordSets(loadedSets);
 
-    const activeId = getActiveSetId(loadedSets);
+    // Check URL parameters / Hash
+    const params = new URLSearchParams(window.location.search);
+    const hash = window.location.hash;
+
+    let initialSets = loadedSets;
+    if (hash.startsWith('#p=')) {
+      const decodedSet = decodeWordSetFromHash(hash.slice(3));
+      if (decodedSet) {
+        const existingIdx = loadedSets.findIndex(s => s.title === decodedSet.title);
+        if (existingIdx >= 0) {
+          initialSets[existingIdx] = decodedSet;
+        } else {
+          initialSets = [decodedSet, ...loadedSets];
+        }
+        saveWordSets(initialSets);
+        saveActiveSetId(decodedSet.id);
+      }
+    }
+
+    setWordSets(initialSets);
+    const activeId = getActiveSetId(initialSets);
     setActiveSetId(activeId);
 
     const history = loadTestHistory();
     setTestHistory(history);
+
+    // Route checks
+    if (params.has('room')) {
+      setTabletInitialRoom(params.get('room') || '');
+      setActiveMode('race-tablet');
+    } else if (params.has('host')) {
+      setActiveMode('race-host');
+    }
   }, []);
 
   // Sync wordSets changes to LocalStorage
@@ -222,6 +256,25 @@ export function App() {
     }
   };
 
+  // Special full screen views for Word Race
+  if (activeMode === 'race-host' && activeSet) {
+    return (
+      <RaceHostMode
+        set={activeSet}
+        onBackToLibrary={() => setActiveMode('flashcard')}
+      />
+    );
+  }
+
+  if (activeMode === 'race-tablet') {
+    return (
+      <RaceTabletMode
+        initialRoom={tabletInitialRoom}
+        onExit={() => setActiveMode('flashcard')}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800 antialiased">
       {/* Navigation Header */}
@@ -233,6 +286,7 @@ export function App() {
         onSelectMode={setActiveMode}
         onCreateNewSet={handleCreateNewSet}
         onOpenTxtImport={() => setIsTxtImportOpen(true)}
+        onOpenShareQr={() => setIsShareQrOpen(true)}
       />
 
       {/* Main Content Body */}
@@ -245,12 +299,12 @@ export function App() {
           />
         )}
 
-        {activeMode === 'recall' && (
-          <RecallMode words={activeWords} />
-        )}
+        {activeMode === 'recall' && <RecallMode words={activeWords} />}
 
-        {activeMode === 'spelling' && (
-          <SpellingMode words={activeWords} />
+        {activeMode === 'spelling' && <SpellingMode words={activeWords} />}
+
+        {activeMode === 'match' && (
+          <MatchGameMode words={activeWords} setId={activeSet?.id || 'default'} />
         )}
 
         {activeMode === 'test' && (
@@ -265,6 +319,8 @@ export function App() {
         {activeMode === 'manage' && (
           <WordListManager
             words={activeWords}
+            wordSets={wordSets}
+            onImportSetsJson={updateWordSetsState}
             onOpenAddModal={() => {
               setWordToEdit(null);
               setIsWordEditOpen(true);
@@ -306,6 +362,12 @@ export function App() {
           setWordToEdit(null);
         }}
         onSave={handleSaveWord}
+      />
+
+      <ShareQrModal
+        isOpen={isShareQrOpen}
+        set={activeSet}
+        onClose={() => setIsShareQrOpen(false)}
       />
     </div>
   );

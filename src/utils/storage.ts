@@ -289,3 +289,76 @@ export function createSetFromSelectedWords(title: string, words: Word[]): WordSe
   saveWordSets(updatedSets);
   return newSet;
 }
+
+/**
+ * High score key for Match Game
+ */
+export function getBestMatchTime(setId: string, tileCount: number): number | null {
+  try {
+    const raw = localStorage.getItem(`class_voca_best_match_${setId}_${tileCount}`);
+    return raw ? parseFloat(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+export function saveBestMatchTime(setId: string, tileCount: number, timeSeconds: number): boolean {
+  try {
+    const key = `class_voca_best_match_${setId}_${tileCount}`;
+    const currentBest = getBestMatchTime(setId, tileCount);
+    if (currentBest === null || timeSeconds < currentBest) {
+      localStorage.setItem(key, timeSeconds.toFixed(1));
+      return true; // New record
+    }
+  } catch (e) {
+    console.error(e);
+  }
+  return false;
+}
+
+/**
+ * JSON Full Backup Export
+ */
+export function exportWordSetsJson(sets: WordSet[]): string {
+  const data = {
+    app: 'mummumvoca',
+    version: '2.0',
+    exportedAt: formatTimestamp(),
+    sets,
+  };
+  return JSON.stringify(data, null, 2);
+}
+
+/**
+ * JSON Full Backup Import
+ */
+export function importWordSetsJson(jsonText: string): { importedCount: number; updatedSets: WordSet[] } {
+  try {
+    const data = JSON.parse(jsonText);
+    const incomingSets: WordSet[] = data.sets || (Array.isArray(data) ? data : []);
+    if (!Array.isArray(incomingSets) || incomingSets.length === 0) {
+      throw new Error('유효한 단어장 데이터가 없습니다.');
+    }
+
+    const currentSets = loadWordSets();
+    const setMap = new Map<string, WordSet>();
+
+    currentSets.forEach(s => setMap.set(s.id, s));
+    let count = 0;
+
+    incomingSets.forEach(s => {
+      if (s && s.title && Array.isArray(s.words)) {
+        const id = s.id || `set_imp_${Date.now()}_${count}`;
+        setMap.set(id, { ...s, id });
+        count++;
+      }
+    });
+
+    const updated = Array.from(setMap.values());
+    saveWordSets(updated);
+    return { importedCount: count, updatedSets: updated };
+  } catch (e) {
+    console.error('Failed to import JSON word sets:', e);
+    throw e;
+  }
+}

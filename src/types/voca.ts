@@ -79,4 +79,35 @@ export interface AutoFillResult {
   exampleMeaning?: string;
 }
 
-export type LearningMode = 'flashcard' | 'recall' | 'spelling' | 'test' | 'manage' | 'history';
+export type LearningMode =
+  | 'flashcard'
+  | 'recall'
+  | 'spelling'
+  | 'match'
+  | 'race-host'
+  | 'race-tablet'
+  | 'test'
+  | 'manage'
+  | 'history';
+
+export interface RaceState {
+  setId: string;
+  room: string;
+  phase: 'lobby' | 'play' | 'pause' | 'end' | 'closed';
+  goal: number;
+  time: number; // in minutes (0 = unlimited)
+  type: 'en2ko' | 'ko2en' | 'mix';
+  scores: number[];
+  names: string[];
+  endsAt: number;
+  remain: number;
+  ts: number;
+  title?: string;
+  words?: [string, string][];
+}
+
+export interface RaceAnswerPayload {
+  team: number;
+  cid: string;
+  seq: number;
+}

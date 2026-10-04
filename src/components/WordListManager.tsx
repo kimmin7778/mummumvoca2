@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
-import type { Word } from '../types/voca';
+import React, { useState, useMemo, useRef } from 'react';
+import type { Word, WordSet } from '../types/voca';
 import { exportWordsToTxt, exportWordsToCsv } from '../utils/txtParser';
+import { exportWordSetsJson, importWordSetsJson } from '../utils/storage';
 import { speakWord } from '../utils/tts';
 import {
   Search,
@@ -14,10 +15,14 @@ import {
   FolderPlus,
   FileText,
   Clock,
+  Save,
+  Upload,
 } from 'lucide-react';
 
 interface WordListManagerProps {
   words: Word[];
+  wordSets?: WordSet[];
+  onImportSetsJson?: (sets: WordSet[]) => void;
   onOpenAddModal: () => void;
   onEditWord: (word: Word) => void;
   onDeleteWord: (wordId: string) => void;
@@ -30,6 +35,8 @@ interface WordListManagerProps {
 
 export const WordListManager: React.FC<WordListManagerProps> = ({
   words,
+  wordSets = [],
+  onImportSetsJson,
   onOpenAddModal,
   onEditWord,
   onDeleteWord,
@@ -44,6 +51,40 @@ export const WordListManager: React.FC<WordListManagerProps> = ({
   const [selectedWordIds, setSelectedWordIds] = useState<string[]>([]);
   const [newSetTitleInput, setNewSetTitleInput] = useState('');
   const [isCreatingSetModal, setIsCreatingSetModal] = useState(false);
+
+  const jsonFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExportFullJson = () => {
+    if (wordSets.length === 0) return;
+    const jsonStr = exportWordSetsJson(wordSets);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `mummumvoca_backup_${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
+  const handleImportJsonFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const result = importWordSetsJson(reader.result as string);
+        if (onImportSetsJson) {
+          onImportSetsJson(result.updatedSets);
+        }
+        alert(`${result.importedCount}개 단어장을 불러왔습니다.`);
+      } catch (err) {
+        alert('백업 JSON 파일을 읽지 못했습니다.');
+      }
+    };
+    reader.readAsText(file);
+  };
 
   // Filtered word list
   const filteredWords = useMemo(() => {
@@ -128,6 +169,31 @@ export const WordListManager: React.FC<WordListManagerProps> = ({
             <FileText className="w-4 h-4" />
             <span>TXT 일괄 가져오기</span>
           </button>
+
+          <button
+            onClick={handleExportFullJson}
+            className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5"
+            title="모든 단어장을 JSON 파일로 내보내기"
+          >
+            <Save className="w-4 h-4 text-slate-500" />
+            <span className="hidden sm:inline">JSON 백업</span>
+          </button>
+
+          <button
+            onClick={() => jsonFileInputRef.current?.click()}
+            className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5"
+            title="JSON 백업 파일 불러오기"
+          >
+            <Upload className="w-4 h-4 text-slate-500" />
+            <span className="hidden sm:inline">백업 복원</span>
+          </button>
+          <input
+            type="file"
+            ref={jsonFileInputRef}
+            onChange={handleImportJsonFile}
+            accept=".json,application/json"
+            className="hidden"
+          />
         </div>
       </div>
 
