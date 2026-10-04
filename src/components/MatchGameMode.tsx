@@ -2,9 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 import type { Word } from '../types/voca';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Gamepad2, RotateCcw, Trophy, Sparkles, Clock, AlertCircle } from 'lucide-react';
-import confetti from 'canvas-confetti';
+import * as confettiModule from 'canvas-confetti';
 import { playSound } from '../utils/audio';
 import { getBestMatchTime, saveBestMatchTime } from '../utils/storage';
+
+const fireConfetti = (options: any) => {
+  const fn = (confettiModule as any).default || confettiModule;
+  if (typeof fn === 'function') fn(options);
+};
 
 interface MatchTile {
   uid: string;
@@ -130,7 +135,7 @@ export function MatchGameMode({ words, setId }: MatchGameModeProps) {
         setIsNewRecord(recordResult);
         setIsGameOver(true);
         playSound('pass');
-        confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+        fireConfetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
       }
     } else {
       // Wrong Match - Penalty!

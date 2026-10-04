@@ -1,9 +1,21 @@
 import { useState, useEffect, useRef } from 'react';
 import type { RaceState, RaceAnswerPayload } from '../types/voca';
-import mqtt, { MqttClient } from 'mqtt';
+import * as mqttModule from 'mqtt';
+import type { MqttClient } from 'mqtt';
 import { playSound } from '../utils/audio';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Rocket, ShieldAlert, Flame, Wifi, WifiOff, ArrowLeft } from 'lucide-react';
+
+const getMqttConnect = () => {
+  const mod = (mqttModule as any).default || mqttModule;
+  return mod.connect || mod['connect'];
+};
+
+const connectMqtt = (url: string, opts?: any): MqttClient => {
+  const fn = getMqttConnect();
+  if (typeof fn === 'function') return fn(url, opts);
+  throw new Error('MQTT connect function not found');
+};
 
 interface RaceTabletModeProps {
   initialRoom?: string;
@@ -60,7 +72,7 @@ export function RaceTabletMode({ initialRoom = '', onExit }: RaceTabletModeProps
     const clientId = cidRef.current;
 
     try {
-      const client = mqtt.connect(BROKERS[0], {
+      const client = connectMqtt(BROKERS[0], {
         clientId,
         reconnectPeriod: 3000,
         connectTimeout: 8000,

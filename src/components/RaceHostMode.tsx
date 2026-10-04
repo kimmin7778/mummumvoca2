@@ -1,8 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
 import type { WordSet, RaceState, RaceAnswerPayload } from '../types/voca';
-import mqtt, { MqttClient } from 'mqtt';
+import * as mqttModule from 'mqtt';
+import type { MqttClient } from 'mqtt';
 import { generateQRCodeDataUrl, getRaceJoinUrl } from '../utils/shareUtils';
 import { motion } from 'framer-motion';
+
+const getMqttConnect = () => {
+  const mod = (mqttModule as any).default || mqttModule;
+  return mod.connect || mod['connect'];
+};
+
+const connectMqtt = (url: string, opts?: any): MqttClient => {
+  const fn = getMqttConnect();
+  if (typeof fn === 'function') return fn(url, opts);
+  throw new Error('MQTT connect function not found');
+};
 import {
   Rocket,
   Trophy,
@@ -18,7 +30,12 @@ import {
   ArrowLeft,
   Sparkles,
 } from 'lucide-react';
-import confetti from 'canvas-confetti';
+import * as confettiModule from 'canvas-confetti';
+
+const fireConfetti = (options: any) => {
+  const fn = (confettiModule as any).default || confettiModule;
+  if (typeof fn === 'function') fn(options);
+};
 
 interface RaceHostModeProps {
   set: WordSet;
@@ -72,7 +89,7 @@ export function RaceHostMode({ set, onBackToLibrary }: RaceHostModeProps) {
 
     let mqttClient: MqttClient | null = null;
     try {
-      mqttClient = mqtt.connect(BROKERS[0], {
+      mqttClient = connectMqtt(BROKERS[0], {
         clientId,
         reconnectPeriod: 3000,
         connectTimeout: 8000,
@@ -166,7 +183,7 @@ export function RaceHostMode({ set, onBackToLibrary }: RaceHostModeProps) {
         nextScores[data.team] = goal;
         setPhase('end');
         publishState(clientRef.current, 'end', nextScores);
-        confetti({ particleCount: 150, spread: 90, origin: { y: 0.5 } });
+        fireConfetti({ particleCount: 150, spread: 90, origin: { y: 0.5 } });
       } else {
         publishState(clientRef.current, 'play', nextScores);
       }
@@ -189,7 +206,7 @@ export function RaceHostMode({ set, onBackToLibrary }: RaceHostModeProps) {
           if (timerRef.current) clearInterval(timerRef.current);
           setPhase('end');
           publishState(clientRef.current, 'end');
-          confetti({ particleCount: 150, spread: 90, origin: { y: 0.5 } });
+          fireConfetti({ particleCount: 150, spread: 90, origin: { y: 0.5 } });
         }
       }, 250);
     } else {
@@ -225,7 +242,7 @@ export function RaceHostMode({ set, onBackToLibrary }: RaceHostModeProps) {
   const handleEndRace = () => {
     setPhase('end');
     publishState(clientRef.current, 'end');
-    confetti({ particleCount: 150, spread: 90, origin: { y: 0.5 } });
+    fireConfetti({ particleCount: 150, spread: 90, origin: { y: 0.5 } });
   };
 
   const handleRestartLobby = () => {

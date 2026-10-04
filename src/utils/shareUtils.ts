@@ -1,7 +1,10 @@
-import LZString from 'lz-string';
-import QRCode from 'qrcode';
+import * as LZStringModule from 'lz-string';
+import * as QRCodeModule from 'qrcode';
 import type { WordSet, Word } from '../types/voca';
 import { formatTimestamp } from './dateFormatter';
+
+const LZString = (LZStringModule as any).default || LZStringModule;
+const QRCode = (QRCodeModule as any).default || QRCodeModule;
 
 export interface CompactWordSet {
   t: string; // title
